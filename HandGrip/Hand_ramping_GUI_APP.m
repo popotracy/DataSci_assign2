@@ -35,7 +35,7 @@
 
 clear, close all,  clc 
 %%
-DebugMode = 0;
+DebugMode = 1;
 DAQMode=1;
 
 % if DebugMode, MVC=184; Baseline=0.28; Lang='eng'; % If 1,(debug) small screen
@@ -238,7 +238,7 @@ while Trial_n >0
         %Data acqusition
         torque_eeg_data = read(d,n);
         % add detrend ... (not sure if it works..., if none, remove it)
-        torque_eeg_data.cDAQ1Mod1_ai23 = torque_eeg_data.cDAQ1Mod1_ai23-Baseline)*Nm;
+        torque_eeg_data.cDAQ1Mod1_ai23 = torque_eeg_data.cDAQ1Mod1_ai23-Baseline*Nm;
         torque_eeg = [torque_eeg; torque_eeg_data];
         Ball_percentage=[Ball_percentage; mean(torque_eeg_data.Variables)*100/MVC];
         Percentage_scale=3*Block_H/Threshold;

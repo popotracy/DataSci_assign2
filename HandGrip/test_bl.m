@@ -35,12 +35,14 @@
 
 clear, close all,  clc 
 %%
-DebugMode = 0;
+DebugMode = 1;
 DAQMode=1;
 
 % if DebugMode, MVC=184; Baseline=0.28; Lang='eng'; % If 1,(debug) small screen
 % else
     load ('Variables.mat', 'MVC','Baseline','Lang','Subject_ID');
+    load ('EEG_Baseline.mat', 'torque_cal');
+
 % end
 %% DAQ 
 if DAQMode
@@ -136,7 +138,7 @@ Ay6 = InScr(4);
 temp_eeg=[];
 torque_eeg=[];
 Ball_percentage=[];
-Trial_n=2;
+Trial_n=10;
 Nm=50;
 
 %% Duration parameters
@@ -149,6 +151,7 @@ Threshold_t=10;                          % #4-#5 Default is 60.
 Rest_t=10;
 Baseline_duration=5;
 Trial_t=pre_Threshold_t+Threshold_t+post_Threshold_t;
+
 
 %Language
 switch Lang
@@ -173,7 +176,14 @@ WaitSecs(3);
 DrawFormattedText(theWindow,text2,'center','center', white,255);
 DrawFormattedText(theWindow, text6,'center',750, white,255); 
 Screen(theWindow,'Flip',[],0);                                              % 0:delete previous, 1:keep
-WaitSecs(3);
+
+% start(d,"continuous");  
+% torque_cal=[];
+% torque_cal_data = read(d,seconds(3));                                        % Read the data in timetable format.
+% torque_cal = [torque_cal; torque_cal_data];
+% cla;
+% stop(d);
+% Baseline=mean(torque_cal.cDAQ1Mod1_ai23);
 
 %% Trail
 timing_check=[]
@@ -194,24 +204,32 @@ while Trial_n >0
     DrawFormattedText(theWindow,text3,Ax1,Ay1-70, black,255); 
     Screen('FillOval', theWindow, black,[Ax1-R, Ay1-R, Ax1+R, Ay1+R])
     Screen(theWindow,'Flip',[],1); 
-    WaitSecs(2);
+
+    start(d,"continuous"); n = ceil(d.Rate/5); 
+    torque_cal=[];
+    torque_cal_data = read(d,seconds(3));                                        % Read the data in timetable format.
+    torque_cal = [torque_cal; torque_cal_data];
+    cla;
+    %stop(d);
+    Baseline=mean(torque_cal.cDAQ1Mod1_ai23);
     DrawFormattedText(theWindow,text4,Ax1+120,Ay1-70, black,255); 
     WaitSecs(2); 
-    Screen(theWindow,'Flip',[],0); 
+    Screen(theWindow,'Flip',[],0);
     
-    %Phase1: onset of a trial.
-    
+    %Phase1: onset of a trial.    
     Onset_ramping=true; 
     Offset_ramping=true;
     torque_eeg=[];
     Ball_percentage=[];
     
-    start(d,"continuous"); n = ceil(d.Rate/8);
+    %start(d,"continuous"); n = ceil(d.Rate/5);
+    %Baseline_noise=downsample(torque_cal.cDAQ1Mod1_ai23,length(torque_cal.cDAQ1Mod1_ai23)/n);
+
     startTime = GetSecs;  
         if ~DebugMode, triger1_check = GetSecs-startTime, timing_check=[timing_check; triger1_check]; 
              setRTS(t,  true); setDTR(t, true);io64(ioObj,address,1);setRTS(t,  false); setDTR(t, false);   end % trigger 1: the onset of MVC measurement.   
          
-         
+  
     while GetSecs <= startTime + Trial_t      
         ClosePTB
         timer=GetSecs-startTime; 
@@ -246,8 +264,8 @@ while Trial_n >0
         torque_eeg_data.cDAQ1Mod1_ai23 = (torque_eeg_data.cDAQ1Mod1_ai23-Baseline);
         torque_eeg = [torque_eeg; torque_eeg_data];
         Ball_percentage=[Ball_percentage; (mean(torque_eeg_data.Variables))*100/MVC];
-        Percentage_scale=3*Block_H/Threshold-1500;
-        Ball_RealtimeHeight=(mean(torque_eeg_data.Variables))*Percentage_scale/MVC;
+        Percentage_scale=3*Block_H/Threshold;
+        Ball_RealtimeHeight=(abs(mean(torque_eeg_data.Variables)))*Percentage_scale/MVC;
 
         %Ball_RealtimeHeight=mean(torque_eeg_data.Variables)*100/(MVC*Threshold);
        
@@ -283,7 +301,6 @@ while Trial_n >0
       end 
       Screen(theWindow,'Flip',[],0);
     end
-    torque_eeg_dt=detrend(torque_eeg.Variables);
 
     if ~DebugMode, triger4_check = GetSecs-startTime, timing_check=[timing_check; triger4_check]; 
              setRTS(t,  true); setDTR(t, true);io64(ioObj,address,1);setRTS(t,  false); setDTR(t, false);   end % trigger 4: the onset of MVC measurement.   
@@ -297,7 +314,7 @@ while Trial_n >0
     Screen(theWindow,'Flip',[],0);
     WaitSecs(3);
     
-    startTime = GetSecs; 
+    startTime = GetSecs;
     while GetSecs < startTime + Rest_t
         ClosePTB
         %inner screen setup
@@ -307,29 +324,8 @@ while Trial_n >0
         %timer
         timer_disp=[num2str(Rest_t-round(GetSecs-startTime)),'s.'];
         DrawFormattedText(theWindow,[text5 timer_disp],'center','center', black,255); 
-        Screen(theWindow,'Flip',[],0);
-        
-    end 
-    
-%     % Phase5
-%     start(d,"continuous");  
-%     n = ceil(d.Rate/5); 
-%     startTime = GetSecs; 
-%     torque_cal=[];
-%     while GetSecs < startTime + Baseline_duration
-%         torque_cal_data = read(d,n);                                        % Read the data in timetable format.
-%         torque_cal = [torque_cal; torque_cal_data];
-%         cla;
-%         
-%         %Base_disp=[num2str(Baseline_duration-round(GetSecs-startTime)),'s'];
-% %         DrawFormattedText(theWindow,text2,'center','center',255);
-% %         Screen(theWindow,'Flip',[],0);  % 0:delete previous, 1:keep 
-%     end 
-%     stop(d);
-%     torque_cal_dt=(torque_cal.cDAQ1Mod1_ai23)
-%     save([pwd,'/',Subject_ID,'_Baseline.mat'],"torque_cal"); 
-%     Baseline=mean(torque_cal_dt);
-    
+        Screen(theWindow,'Flip',[],0);        
+    end      
     Trial_n=Trial_n-1;    
 end 
 
